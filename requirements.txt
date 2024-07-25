@@ -38,6 +38,7 @@ sympy==1.13.1
 tabulate==0.9.0
 tenacity==8.5.0
 torch==2.2.2
+torchsummary==1.5.1
 torchviz==0.0.2
 tqdm==4.66.4
 typing_extensions==4.12.2
