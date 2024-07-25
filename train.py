@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from torch.utils.data import Dataset, DataLoader
 from torch.utils.data.dataloader import default_collate
 from torch.utils.data.sampler import SubsetRandomSampler
-from tfn_ck_model import TFN  # assuming your TFN class is in tfn.py
+from model import TFN  # assuming your TFN class is in tfn.py
 from torchviz import make_dot
 from torchsummary import summary
 
@@ -116,10 +116,10 @@ class AverageMeter(object):
         self.count += n
         self.avg = self.sum / self.count / 3  # x, y, zがあるので3で割る
 
-def save_checkpoint(state, is_best, filename=f'tfn_ck/{model_checkpoint}'):
+def save_checkpoint(state, is_best, filename=f'tfn/{model_checkpoint}'):
     torch.save(state, filename)
     if is_best:
-        shutil.copyfile(filename, f'tfn_ck/{model_best}')
+        shutil.copyfile(filename, f'tfn/{model_best}')
 
 def train(train_loader, model, criterion, optimizer):
     losses = AverageMeter()
@@ -177,7 +177,7 @@ def validate(val_loader, model, is_test=False):
 
     if is_test:
         import csv
-        with open("tfn_ck/test_results.csv", "w") as f:
+        with open("tfn/test_results.csv", "w") as f:
             writer = csv.writer(f)
             writer.writerow(["id", "target_path", "pred_path"])
             for id, target, pred in zip(test_ids_list, test_targets_list, test_preds_list):
@@ -189,10 +189,10 @@ def validate(val_loader, model, is_test=False):
                     elif i == 2:
                         id_ = f"{id}_z"
                     target_ = np.array(target[i])
-                    target_path = f"tfn_ck/test_targets/{id_}.npy"
+                    target_path = f"tfn/test_targets/{id_}.npy"
                     np.save(target_path, target_)
                     pred_ = np.array(pred[i])
-                    pred_path = f"tfn_ck/test_preds/{id_}.npy"
+                    pred_path = f"tfn/test_preds/{id_}.npy"
                     np.save(pred_path, pred_)
 
                     writer.writerow([id_, target_path, pred_path])
@@ -200,7 +200,7 @@ def validate(val_loader, model, is_test=False):
     return mse_errors.avg
 
 def show_result(min_energy, max_energy, model):
-    df = pd.read_csv("tfn_ck/test_results.csv")
+    df = pd.read_csv("tfn/test_results.csv")
     fig, axes = plt.subplots(10, 10, figsize=(20, 20))
     energy = np.linspace(min_energy, max_energy, 256)
     for i in range(10):
@@ -225,12 +225,12 @@ def show_result(min_energy, max_energy, model):
         ax_pre.plot(x, pred_y)
         ax_pre.set_title(f"{id_} pred")
     plt.tight_layout()
-    plt.savefig("tfn_ck/test_results.png")
+    plt.savefig("tfn/test_results.png")
 
     # make_dot(pred_y, params=dict(model.named_parameters()))
 
 class EarlyStopping:
-    def __init__(self, patience=5, verbose=False, path=f'tfn_ck/{model_checkpoint}'):
+    def __init__(self, patience=5, verbose=False, path=f'tfn/{model_checkpoint}'):
         self.patience = patience    #設定ストップカウンタ
         self.verbose = verbose      #表示の有無
         self.counter = 0            #現在のカウンタ値
@@ -267,7 +267,7 @@ def main():
     # データをロード
     print("Loading data...")
     batch_size = 32
-    processed_data = torch.load('tfn_ck_dataset.pt')
+    processed_data = torch.load('dataset.pt')
     dataset = TFNDataset(processed_data)
     train_loader, val_loader, test_loader = get_train_val_test_loader(
         dataset=dataset,
@@ -310,14 +310,14 @@ def main():
             break
 
     print("=====Evaluate Model on Test Set=====")
-    best_checkpoint = torch.load(f"tfn_ck/{model_best}")
+    best_checkpoint = torch.load(f"tfn/{model_best}")
     model.load_state_dict(best_checkpoint["state_dict"])
     _ = validate(test_loader, model, is_test=True)
 
     min_energy = 288
     max_energy = 310
     show_result(min_energy, max_energy, model)
-    # torch.onnx.export(model, test_loader, "tfn_ck/model.onnx", verbose=True)
+    # torch.onnx.export(model, test_loader, "tfn/model.onnx", verbose=True)
 
     print("batch_size: ", batch_size)
     print("num_epochs: ", num_epochs)
