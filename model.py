@@ -325,7 +325,7 @@ class Convolution(nn.Module):
                                       biases_initializer=self.biases_initializer)
 
     def forward(self, input_tensor_list, rbf, unit_vectors):
-        output_tensor_list = {0: [], 1: []}
+        output_tensor_list = {0: [], 1: [], 2: []}
 
         for key in input_tensor_list:
             for i, tensor in enumerate(input_tensor_list[key]):
@@ -345,6 +345,19 @@ class Convolution(nn.Module):
                                                    weights_initializer=self.weights_initializer,
                                                    biases_initializer=self.biases_initializer)
                     m = 0 if tensor_out.size(-1) == 1 else 1
+                    output_tensor_list[m].append(tensor_out)
+
+                if key == 2:
+                    tensor_out = filter_2_output_2(tensor, rbf, unit_vectors,
+                                                   output_dim=output_dim,
+                                                   weights_initializer=self.weights_initializer,
+                                                   biases_initializer=self.biases_initializer)
+                    if tensor_out.size(-1) == 5:
+                        m = 2
+                    elif tensor_out.size(-1) == 3:
+                        m = 1
+                    elif tensor_out.size(-1) == 1:
+                        m = 0
                     output_tensor_list[m].append(tensor_out)
 
                 if key == 0 or key == 1:
@@ -399,7 +412,6 @@ class SelfInteraction(nn.Module):
         for key in input_tensor_list:
             for i, tensor in enumerate(input_tensor_list[key]):
                 if key == 0:
-                    # print("SelfInteraction: ", tensor.size())
                     tensor_out = SelfInteractionLayerWithBiases(tensor.size(-2), self.output_dim)(tensor)
                     # tensor_out = self.self_interaction_layer_with_biases(tensor, self.output_dim)
                 else:
@@ -428,6 +440,8 @@ class Nonlinearity(nn.Module):
         self.biases_initializer(self.biases0, 0.0)
         self.biases1 = nn.Parameter(torch.Tensor(3))
         self.biases_initializer(self.biases1, 0.0)
+        self.biases2 = nn.Parameter(torch.Tensor(5))
+        self.biases_initializer(self.biases2, 0.0)
 
     def rotation_equivariant_nonlinearity(self, tensor, nonlin):
         output_dim = tensor.size(-1)
@@ -435,18 +449,25 @@ class Nonlinearity(nn.Module):
             biases = self.biases0
         elif output_dim == 3:
             biases = self.biases1
+        elif output_dim == 5:
+            biases = self.biases2
         return nonlin(tensor + biases.unsqueeze(-2))
 
     def forward(self, input_tensor_list):
-        output_tensor_list = {0: [], 1: []}
+        output_tensor_list = {0: [], 1: [], 2: [], 3: []}
 
         for key in input_tensor_list:
             for i, tensor in enumerate(input_tensor_list[key]):
-                if key == 0 or key == 1:
+                if key == 0 or key == 1 or key == 2:
                     tensor_out = self.rotation_equivariant_nonlinearity(tensor, nonlin=self.nonlin)
                     tensor_out = tensor_out.unsqueeze(1)
 
-                m = 0 if tensor_out.size(-1) == 1 else 1
+                if tensor_out.size(-1) == 1:
+                    m = 0
+                elif tensor_out.size(-1) == 3:
+                    m = 1
+                elif tensor_out.size(-1) == 5:
+                    m = 2
                 output_tensor_list[m].append(tensor_out)
 
         return output_tensor_list
@@ -456,7 +477,7 @@ def concatenation(input_tensor_list):
     """
     各テンソルリストを指定されたチャネル軸に沿って連結し、結果をoutput_tensor_listに追加します。
     """
-    output_tensor_list = {0: [], 1: []}
+    output_tensor_list = {0: [], 1: [], 2: []}
 
     for key in input_tensor_list:
         # Concatenate along channel axis
