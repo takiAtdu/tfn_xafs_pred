@@ -146,7 +146,7 @@ def process_xyz_file(xyz_path, prop_path, carbon_sites, id, min_energy, max_ener
     return (node_features, one_hot_encoded, node_coords, edge_index, edge_attr, carbon_index), target, id
 
 
-def main():
+def main(data_size=100):
     # xyzファイルを処理して保存
     xyz_filelist = glob.glob("/Users/atsushitakigawa/Downloads/dsgdb9nsd.xyz/*.xyz")
     prop_raw_dir = "/Users/atsushitakigawa/Downloads/csv_spectra_0.5eV"
@@ -176,15 +176,16 @@ def main():
                             processed_data.append(data)
                         except:
                             print(f"skip {material_id}")
-        if len(processed_data) > 10000:
+        if len(processed_data) > data_size:
             break
 
     # データを保存
-    torch.save(processed_data, 'tfn_ck_dataset.pt')
+    torch.save(processed_data, 'dataset.pt')
     print("データ数: ", len(processed_data))
 
 
 
 if __name__ == '__main__':
-    main()
+    data_size = int(input())
+    main(data_size)
 
