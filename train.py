@@ -8,9 +8,7 @@ import matplotlib.pyplot as plt
 from torch.utils.data import Dataset, DataLoader
 from torch.utils.data.dataloader import default_collate
 from torch.utils.data.sampler import SubsetRandomSampler
-from model import TFN  # assuming your TFN class is in tfn.py
-from torchviz import make_dot
-from torchsummary import summary
+from model import TFN
 
 model_best = "model_best.pth.tar"
 model_checkpoint = "checkpoint.pth.tar"
@@ -199,11 +197,11 @@ def validate(val_loader, model, is_test=False):
 
     return mse_errors.avg
 
-def show_result(min_energy, max_energy, model):
+def show_result(min_energy, max_energy):
     df = pd.read_csv("tfn/test_results.csv")
     fig, axes = plt.subplots(10, 10, figsize=(20, 20))
     energy = np.linspace(min_energy, max_energy, 256)
-    for i in range(10):
+    for i in range(50):
         _row = i // 10 * 2
         col = i % 10
         target_row = _row
@@ -229,6 +227,30 @@ def show_result(min_energy, max_energy, model):
 
     # make_dot(pred_y, params=dict(model.named_parameters()))
 
+def show_result_comparable(min_energy, max_energy):
+    df = pd.read_csv("tfn/test_results.csv")
+    fig, axes = plt.subplots(10, 10, figsize=(20, 20))
+    energy = np.linspace(min_energy, max_energy, 256)
+    for i in range(min(100, len(df))):
+        row = i // 10
+        col = i % 10
+
+        df_ = df.iloc[i]
+        id_ = df_["id"]
+        target_path = df_["target_path"]
+        pred_path = df_["pred_path"]
+        x = energy
+        target_y = np.load(target_path)
+        pred_y = np.load(pred_path)
+
+        ax = axes[row, col]
+        ax.plot(x, target_y)
+        ax.plot(x, pred_y)
+        ax.set_title(f"{id_}")
+
+    plt.tight_layout()
+    plt.savefig("tfn/test_results.png")
+
 class EarlyStopping:
     def __init__(self, patience=5, verbose=False, path=f'tfn/{model_checkpoint}'):
         self.patience = patience    #設定ストップカウンタ
@@ -236,7 +258,7 @@ class EarlyStopping:
         self.counter = 0            #現在のカウンタ値
         self.best_score = None      #ベストスコア
         self.early_stop = False     #ストップフラグ
-        self.val_loss_min = np.inf   #前回のベストスコア記憶用
+        self.val_loss_min = np.Inf   #前回のベストスコア記憶用
         self.path = path             #ベストモデル格納path
 
     def __call__(self, val_loss, model):
@@ -266,7 +288,7 @@ class EarlyStopping:
 def main():
     # データをロード
     print("Loading data...")
-    batch_size = 32
+    batch_size = 1
     processed_data = torch.load('dataset.pt')
     dataset = TFNDataset(processed_data)
     train_loader, val_loader, test_loader = get_train_val_test_loader(
@@ -284,12 +306,13 @@ def main():
     model = TFN(num_atom_types=num_atom_types, output_dim=256)
     optimizer = optim.Adam(model.parameters(), lr=1e-4)
     criterion = MSELoss()
-    earlystopping = EarlyStopping(patience=5, verbose=True)
+    earlystopping = EarlyStopping(patience=40, verbose=True)
 
     # 訓練ループ
-    num_epochs = 3
+    num_epochs = 1000
     best_mse_error = 1e10
     for epoch in range(num_epochs):
+        print(f"Start Epoch {epoch + 1}/{num_epochs}")
         model.train()
         loss = train(train_loader, model, criterion, optimizer)
         print(f"Epoch {epoch + 1}/{num_epochs}, Loss: {loss}")
@@ -316,7 +339,7 @@ def main():
 
     min_energy = 288
     max_energy = 310
-    show_result(min_energy, max_energy, model)
+    show_result_comparable(min_energy, max_energy)
     # torch.onnx.export(model, test_loader, "tfn/model.onnx", verbose=True)
 
     print("batch_size: ", batch_size)
